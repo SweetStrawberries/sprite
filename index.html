@@ -1,17 +1,16 @@
 <!doctype html>
 <meta charset="utf-8">
-<title>Перемещение спрайта с помощью клавиатуры</title>
-<canvas width="550" height="400" style="border: 1px dashed black">
+<title>Parallax прокрутка</title>
+<canvas width="550" height="410" style="border: 1px dashed black">
 </canvas>
-var canvas = document.querySelector("canvas");
 <script>
 //--- Объект спрайта
 var spriteObject =
 {
 	sourceX: 0,
 	sourceY: 0,
-	sourceWidth: 64,
-	sourceHeight: 64,
+	sourceWidth: 32,
+	sourceHeight: 32,
 	x: 0,
 	y: 0,
 	width: 64,
@@ -19,29 +18,77 @@ var spriteObject =
 	vx: 0,
 	vy: 0
 };
-//--- Главная программа
+//--- Основная программа
 //Холст и его поверхность рисования
 var canvas = document.querySelector("canvas");
 var drawingSurface = canvas.getContext("2d");
-//Массив для хранения спрайтов
+//Массив игровых спрайтов
 var sprites = [];
+//Создание спрайта distantBackground
+var distantBackground = Object.create(spriteObject);
+distantBackground.sourceY = 32;
+distantBackground.sourceWidth = 550;
+distantBackground.sourceHeight = 68;
+distantBackground.width = 1100;
+distantBackground.height = 136;
+distantBackground.x = 0;
+distantBackground.y = 0;
+sprites.push(distantBackground);
+//Создание спрайта foreground
+var foreground = Object.create(spriteObject);
+foreground.sourceY = 100;
+foreground.sourceWidth = 550;
+foreground.sourceHeight = 137;
+foreground.width = 1100;
+foreground.height = 274;
+foreground.x = 0;
+foreground.y = 136;
+sprites.push(foreground);
+//Создание объектов gameWorld и camera
+var gameWorld =
+{
+	x: 0,
+	y: 0,
+	width: foreground.width,
+	height: foreground.height
+};
+//Камера имеет 2 новых свойства: "vx" и "previousX"
+var camera =
+{
+	x: 0,
+	y: 0,
+	width: canvas.width,
+	height: canvas.height,
+	vx: 0,
+	previousX: 0,
+	//Внутренняя рамка камеры
+	rightInnerBoundary: function()
+	{
+		return this.x + (this.width * 0.75);
+	},
+	leftInnerBoundary: function()
+	{
+		return this.x + (this.width * 0.25);
+	}
+};
+//Центрирование камеры в игровом мире
+camera.x = (gameWorld.x + gameWorld.width / 2)
+- camera.width / 2;
+/*camera.y = (gameWorld.y + gameWorld.height / 2)
+- camera.height / 2;*/
 //Создание спрайта кошки и центрирование его
 var cat = Object.create(spriteObject);
-cat.x = 243;
-cat.y = 168;
+cat.x = (gameWorld.x + gameWorld.width / 2) - cat.width / 2;
+cat.y = 410-64;
 sprites.push(cat);
-//Загрузка изображения спрайта
+//Загрузка набора фреймов
 var image = new Image();
 image.addEventListener("load", loadHandler, false);
-image.src = "cat.png";
+image.src = "parallaxScrollingTileSheet.png";
 //Коды клавиш со стрелками
-var UP = 38;
-var DOWN = 40;
 var RIGHT = 39;
 var LEFT = 37;
 //Направления движения
-var moveUp = false;
-var moveDown = false;
 var moveRight = false;
 var moveLeft = false;
 //Обработчик событий нажатия клавиш клавиатуры
@@ -49,12 +96,6 @@ window.addEventListener("keydown", function(event)
 {
 	switch(event.keyCode)
 	{
-		case UP:
-		moveUp = true;
-		break;
-		case DOWN:
-		moveDown = true;
-		break;
 		case LEFT:
 		moveLeft = true;
 		break;
@@ -66,23 +107,16 @@ window.addEventListener("keydown", function(event)
 //Обработчик событий отпускания клавиш клавиатуры
 window.addEventListener("keyup", function(event)
 {
-	 switch(event.keyCode)
-	 {
-		 case UP:
-		 moveUp = false;
-		 break;
-		 case DOWN:
-		 moveDown = false;
-		 break;
-		 case LEFT:
-		 moveLeft = false;
-		 break;
-		 case RIGHT:
-		 moveRight = false;
-		 break;
-	 }
+	switch(event.keyCode)
+	{
+		case LEFT:
+		moveLeft = false;
+		break; 
+		case RIGHT:
+		moveRight = false;
+		break;
+	}
 }, false);
-//Обработчик события завершения загрузки изображения
 function loadHandler()
 {
 	update();
@@ -91,75 +125,73 @@ function update()
 {
 	//Цикл анимации
 	requestAnimationFrame(update, canvas);
-	//Вверх
-	if(moveUp && !moveDown)
-	{
-		cat.vy = -5;
-	}
-	//Вниз
-	if(moveDown && !moveUp)
-	{
-		cat.vy = 5;
-	}
 	//Налево
 	if(moveLeft && !moveRight)
 	{
-		cat.vx = -5;
+		cat.vx = -5
 	}
 	//Направо
 	if(moveRight && !moveLeft)
 	{
 		cat.vx = 5;
 	}
-	//Если ни одна из клавиш не нажата, скорость перемещения равна 0
-	if(!moveUp && !moveDown)
-	{
-		cat.vy = 0;
-	}
+	//Если ни одна из клавиш не нажата, скорость перемещения 0
 	if(!moveLeft && !moveRight)
 	{
 		cat.vx = 0;
 	}
-	//Перемещение кошки
-	cat.x += cat.vx;
-	cat.y += cat.vy;
-	//Остановка спрайта на границе холста
-	if (cat.x < 0)
+	//Перемещение спрайта кошки внутри границ gameWorld
+	cat.x = Math.max(0, Math.min(cat.x + cat.vx, gameWorld.width
+	- cat.width));
+	//Прокрутка камеры
+	if(cat.x < camera.leftInnerBoundary())
 	{
-		cat.x = 0;
+		camera.x = Math.floor(cat.x - (camera.width * 0.25));
 	}
-	if (cat.y < 0)
+	if(cat.x + cat.width > camera.rightInnerBoundary())
 	{
-		cat.y = 0;
+		camera.x = Math.floor(cat.x + cat.width
+	- (camera.width * 0.75));
 	}
-	if (cat.x + cat.width > canvas.width)
+	//Блокирование перемещения камеры у границ gameWorld
+	if(camera.x < gameWorld.x)
 	{
-		cat.x = canvas.width - cat.width;
+		camera.x = gameWorld.x;
 	}
-	if (cat.y + cat.height > canvas.height)
+	if(camera.x + camera.width > gameWorld.x + gameWorld.width)
 	{
-		cat.y = canvas.height - cat.height;
+		camera.x = gameWorld.x + gameWorld.width - camera.width;
 	}
-
-	//Отображение спрайта
+	//Вычисление скорости камеры, как разности
+	//ее позиций в этом и предыдущем кадре
+	camera.vx = camera.x - camera.previousX;
+	//Перемещение фона distantBackground с замедленной скоростью
+	distantBackground.x += camera.vx / 2;
+	//Сохранение текущей X-позиции камеры, чтобы использовать ее
+	//как previousX в следующем кадре
+	camera.previousX = camera.x;
 	render();
 }
-function render()
+function render(event)
 {
-	//Очистка холста: удаление предыдущего анимационного кадра
 	drawingSurface.clearRect(0, 0, canvas.width, canvas.height);
-	//Перебор спрайтов и использование их свойств для отображения
+	drawingSurface.save();
+	//Смещение поверхности рисования
+	drawingSurface.translate(-camera.x, -camera.y);
+	//Перебор спрайтов и использование их свойства для отображения
 	if(sprites.length !== 0)
 	{
 		for(var i = 0; i < sprites.length; i++)
 		{
 			var sprite = sprites[i];
-			drawingSurface.drawImage(image,
+			drawingSurface.drawImage
+			(image,
 			sprite.sourceX, sprite.sourceY,
 			sprite.sourceWidth, sprite.sourceHeight,
 			Math.floor(sprite.x), Math.floor(sprite.y),
 			sprite.width, sprite.height);
 		}
 	}
+	drawingSurface.restore();
 }
 </script>
