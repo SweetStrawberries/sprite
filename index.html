@@ -9,14 +9,29 @@ var spriteObject =
 {
 	sourceX: 0,
 	sourceY: 0,
-	sourceWidth: 32,
-	sourceHeight: 32,
+	sourceWidth: 64,
+	sourceHeight: 64,
 	x: 0,
 	y: 0,
 	width: 64,
 	height: 64,
-	vx: 0,
-	vy: 0
+	 //Стороны спрайта
+	left: function()
+	 {
+	 	return this.x;
+	 },
+	 right: function()
+	 {
+	 	return this.x + this.width;
+	 },
+	 top: function()
+	 {
+		 return this.y;
+	 },
+	 bottom: function()
+	 {
+	 	return this.y + this.height;
+	 }
 };
 //--- Основная программа
 //Холст и его поверхность рисования
